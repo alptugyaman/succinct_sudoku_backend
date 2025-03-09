@@ -1,21 +1,16 @@
 # Git
 .git
-.gitignore
+.github
 
-# Rust
-target/
-**/*.rs.bk
-# Cargo.lock dosyasını hariç tutmuyoruz çünkü Docker build için gerekli
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Docker
-Dockerfile
-docker-compose.yml
-.dockerignore
+# OS files
+.DS_Store
+Thumbs.db
 
-# Diğer
-.env
-.env.*
-*.log
-data/
-tmp/
-.DS_Store 
+# Exclude the target directory but keep the ELF file path structure
+!target/elf-compilation/riscv32im-succinct-zkvm-elf/release/ 
