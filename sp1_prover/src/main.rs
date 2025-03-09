@@ -1,22 +1,18 @@
 #![no_main]
-use sp1_zkvm::{runtime::Runtime, SP1Stdin, SP1Stdout};
-
-fn main() {
-    // SP1 runtime'ı başlat
-    Runtime::run(verify_sudoku);
-}
+// Update the import to use the new API structure
+sp1_zkvm::entrypoint!(verify_sudoku);
 
 // SP1 içinde çalışacak Sudoku doğrulama fonksiyonu
-fn verify_sudoku(stdin: &mut SP1Stdin, stdout: &mut SP1Stdout) {
+fn verify_sudoku() {
     // Giriş verilerini oku
-    let initial_board: Vec<Vec<u8>> = stdin.read();
-    let solution: Vec<Vec<u8>> = stdin.read();
+    let initial_board: Vec<Vec<u8>> = sp1_zkvm::io::read();
+    let solution: Vec<Vec<u8>> = sp1_zkvm::io::read();
     
     // Çözümün doğruluğunu kontrol et
     let is_valid = verify_replay(&initial_board, &solution);
     
     // Sonucu yaz
-    stdout.write(&is_valid);
+    sp1_zkvm::io::commit(&is_valid);
 }
 
 // Sudoku çözümünün başlangıç tahtasına uygun olup olmadığını kontrol eden fonksiyon
