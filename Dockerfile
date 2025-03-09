@@ -1,34 +1,42 @@
-FROM rust:1.76-slim
+FROM rust:1.76-slim as builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Gerekli paketleri yükle
+RUN apt-get update && \
+    apt-get install -y pkg-config build-essential libssl-dev curl git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy the entire project
-COPY . .
+# Cargo.toml ve Cargo.lock dosyalarını kopyala
+COPY Cargo.toml Cargo.lock ./
+COPY sp1_prover/Cargo.toml ./sp1_prover/
 
-# Create the directory for the ELF file
-RUN mkdir -p target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
+# Sahte bir main.rs oluştur ve bağımlılıkları önceden derle
+RUN mkdir -p sp1_prover/src && \
+    echo "fn main() {}" > sp1_prover/src/main.rs && \
+    cargo build --release && \
+    rm -rf sp1_prover/src
 
-# Build the SP1 prover
-RUN cd sp1_prover && cargo build --release
+# Gerçek kaynak kodunu kopyala
+COPY sp1_prover/src ./sp1_prover/src
 
-# Copy the compiled SP1 prover to the expected location
-RUN cp sp1_prover/target/release/sp1_prover target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
-
-# Build the application
+# Projeyi derle
 RUN cargo build --release
 
-# Create assets directory if needed
-RUN mkdir -p /app/assets
+# Çalışma zamanı aşaması
+FROM debian:bullseye-slim
 
-# Expose the port the app will run on
-ENV PORT=3000
-EXPOSE 3000
+WORKDIR /app
 
-# Command to run the application
-CMD ["./target/release/sudoku_backend"] 
+# Gerekli çalışma zamanı bağımlılıklarını yükle
+RUN apt-get update && \
+    apt-get install -y libssl-dev ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Derlenmiş binary'yi kopyala
+COPY --from=builder /app/target/release/sp1_prover /app/sp1_prover
+
+# Çalıştırma komutu
+CMD ["/app/sp1_prover"] 
