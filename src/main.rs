@@ -93,8 +93,12 @@ async fn main() {
         )
         .with_state(jobs);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    info!("Server running at http://{}", addr);
+    // PORT ortam değişkenini al veya varsayılan olarak 3000 kullan
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string()).parse::<u16>().unwrap();
+    
+    // Railway'de çalışırken 0.0.0.0 adresini dinle
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    info!("Server running at http://{}:{}", if port == 3000 { "127.0.0.1" } else { "0.0.0.0" }, port);
     
     let listener = TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
