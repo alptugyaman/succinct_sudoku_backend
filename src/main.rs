@@ -23,18 +23,14 @@ use env_logger::Builder;
 use chrono::Local;
 use tower_http::trace::{self, TraceLayer};
 use tracing::Level as TracingLevel;
+// CORS için gerekli bileşenler
+use tower_http::cors::CorsLayer;
 
 // SP1 için gerekli bileşenler
 use sp1_sdk::{ProverClient, SP1Stdin, HashableKey};
 
 // ELF dosyası (SP1 prover'ın derlenmiş hali)
-// Railway deployment için koşullu derleme
-#[cfg(not(feature = "dummy_prover"))]
 const ELF: &[u8] = include_bytes!("../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1_prover");
-
-// Dummy prover için boş bir ELF dosyası
-#[cfg(feature = "dummy_prover")]
-const ELF: &[u8] = &[];
 
 // İş depolama yapısı
 type JobStorage = Arc<Mutex<HashMap<String, JobStatus>>>;
@@ -69,6 +65,37 @@ async fn log_request_response(
     response
 }
 
+// İstek gövdesini loglayan middleware
+async fn log_request_body(
+    req: Request<Body>,
+    next: Next,
+) -> axum::response::Response {
+    let (parts, body) = req.into_parts();
+    let bytes = match axum::body::to_bytes(body, usize::MAX).await {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            error!("Failed to read request body: {}", err);
+            return axum::response::Response::builder()
+                .status(500)
+                .body(Body::from("Internal Server Error"))
+                .unwrap();
+        }
+    };
+
+    let body_str = String::from_utf8_lossy(&bytes);
+    if !body_str.is_empty() {
+        info!("Request body: {}", body_str);
+        
+        // JSON formatını analiz et
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body_str) {
+            info!("JSON keys: {:?}", json.as_object().map(|obj| obj.keys().collect::<Vec<_>>()));
+        }
+    }
+
+    let req = Request::from_parts(parts, Body::from(bytes));
+    next.run(req).await
+}
+
 #[tokio::main]
 async fn main() {
     // Loglama yapılandırması
@@ -78,16 +105,39 @@ async fn main() {
     // İş depolama yapısını oluştur
     let jobs = Arc::new(Mutex::new(HashMap::new()));
     
+    // CORS yapılandırması
+    let cors = CorsLayer::new()
+        .allow_origin([
+            "http://localhost:3000".parse().unwrap(),
+            "http://localhost:3001".parse().unwrap(),
+            "http://localhost:3002".parse().unwrap(),
+            "http://localhost:8080".parse().unwrap()
+        ])
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::OPTIONS,
+        ])
+        .allow_headers([
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::AUTHORIZATION,
+            axum::http::header::ACCEPT,
+        ])
+        .allow_credentials(true);
+    
     // API rotalarını tanımla
     let app = Router::new()
         .route("/", get(|| async { "Sudoku Backend Running!" }))
-        .route("/validate", post(validate_sudoku))
-        .route("/verify", post(verify_sudoku))
-        .route("/zkp", post(zkp_sudoku))
-        .route("/prove", post(prove_handler))
-        .route("/proof/:job_id", get(proof_ws_handler))
+        .route("/api/validate", post(validate_sudoku))
+        .route("/api/verify", post(verify_sudoku))
+        .route("/api/zkp", post(zkp_sudoku))
+        .route("/api/prove", post(prove_handler))
+        .route("/api/proof/:job_id", get(proof_ws_handler))
+        .route("/api/proof-status/:job_id", get(get_proof_status))
+        .layer(cors) // CORS middleware'ini ekle
         .layer(middleware::map_response(log_response))
         .layer(middleware::from_fn(log_request_response))
+        .layer(middleware::from_fn(log_request_body)) // İstek gövdesini loglayan middleware'i ekle
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(trace::DefaultMakeSpan::new()
@@ -99,12 +149,8 @@ async fn main() {
         )
         .with_state(jobs);
 
-    // PORT ortam değişkenini al veya varsayılan olarak 3000 kullan
-    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string()).parse::<u16>().unwrap();
-    
-    // Railway'de çalışırken 0.0.0.0 adresini dinle
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    info!("Server running at http://{}:{}", if port == 3000 { "127.0.0.1" } else { "0.0.0.0" }, port);
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    info!("Server running at http://{}", addr);
     
     let listener = TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
@@ -148,9 +194,11 @@ struct SudokuResponse {
 }
 
 // Sudoku çözümünü doğrulamak için veri modeli
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct VerifyRequest {
+    #[serde(alias = "initialBoard", alias = "board", alias = "puzzle", alias = "grid", alias = "sudoku")]
     initial_board: Vec<Vec<u8>>,
+    #[serde(alias = "solutionBoard")]
     solution: Vec<Vec<u8>>,
 }
 
@@ -205,8 +253,14 @@ async fn validate_sudoku(Json(payload): Json<SudokuRequest>) -> Json<SudokuRespo
 }
 
 // Sudoku çözümünü doğrulayan fonksiyon
-async fn verify_sudoku(Json(payload): Json<VerifyRequest>) -> Json<SudokuResponse> {
+async fn verify_sudoku(
+    Json(payload): Json<VerifyRequest>,
+) -> Json<SudokuResponse> {
     info!("verify_sudoku called");
+    
+    // Gelen veriyi logla
+    info!("Received payload: {:?}", payload);
+    
     debug!("Received initial board: {:?}", payload.initial_board);
     debug!("Received solution: {:?}", payload.solution);
     
@@ -398,16 +452,6 @@ async fn generate_proof(
 ) -> Result<ProofResponse, String> {
     info!("generate_proof started: {}", job_id);
     
-    // ELF dosyasının boyutunu kontrol et
-    if ELF.is_empty() {
-        warn!("ELF file is empty or not available: {}", job_id);
-        // Railway deployment için simüle edilmiş bir proof döndür
-        return Ok(ProofResponse {
-            public_values: "simulated_public_values".to_string(),
-            proof: format!("simulated_proof_for_job_{}", job_id),
-        });
-    }
-    
     // Proof oluşturma dizinini kontrol et
     let assets_dir = "assets";
     if !FilePath::new(assets_dir).exists() {
@@ -434,85 +478,56 @@ async fn generate_proof(
     stdin.write(&input.initial_board);
     stdin.write(&input.solution);
     
-    // Try-catch bloğu ile SP1 işlemlerini koru
-    let result = std::panic::catch_unwind(|| {
-        // Önce execute et (proof oluşturmadan önce doğrula)
-        info!("Running SP1 program: {}", job_id);
-        let (mut pub_values, _) = match client.execute(ELF, &stdin).run() {
-            Ok(result) => result,
-            Err(e) => {
-                error!("SP1 execution error: {} - {}", job_id, e);
-                // Railway deployment için simüle edilmiş bir proof döndür
-                return Ok(ProofResponse {
-                    public_values: "simulated_public_values_after_error".to_string(),
-                    proof: format!("simulated_proof_for_job_{}_after_error", job_id),
-                });
-            }
-        };
-        
-        let is_valid = pub_values.read::<bool>();
-        info!("SP1 execution result: {} - {}", job_id, is_valid);
-        
-        if !is_valid {
-            warn!("Invalid solution according to SP1: {}", job_id);
-            return Err("Invalid solution according to SP1".to_string());
-        }
-        
-        // Prover ve Verifier anahtarlarını oluştur
-        info!("Setting up prover and verifier keys: {}", job_id);
-        let (pk, vk) = client.setup(ELF);
-        debug!("Verification key: {} - {:?}", job_id, vk.bytes32_raw());
-        
-        // Proof oluştur
-        info!("Generating proof: {}", job_id);
-        let mut proof = match client.prove(&pk, &stdin).compressed().run() {
-            Ok(proof) => proof,
-            Err(e) => {
-                error!("Proof generation error: {} - {}", job_id, e);
-                // Railway deployment için simüle edilmiş bir proof döndür
-                return Ok(ProofResponse {
-                    public_values: "simulated_public_values_after_prove_error".to_string(),
-                    proof: format!("simulated_proof_for_job_{}_after_prove_error", job_id),
-                });
-            }
-        };
-        
-        // Proof'u kaydet
-        let file_path_rel = format!("proof-{}.proof", job_id);
-        let file_path = format!("{}/{}", assets_dir, file_path_rel);
-        
-        info!("Saving proof: {} - {}", job_id, file_path);
-        proof.save(&file_path).map_err(|e| {
-            error!("Proof saving error: {} - {}", job_id, e);
-            e.to_string()
-        })?;
-        info!("Proof successfully saved: {} - {}", job_id, file_path);
-        
-        // Public değerleri al
-        let public_valid = proof.public_values.read::<bool>();
-        let final_public_values = format!("{}", public_valid);
-        debug!("Public values: {} - {}", job_id, final_public_values);
-        
-        // Yanıtı döndür
-        info!("Creating proof response: {}", job_id);
-        Ok(ProofResponse {
-            public_values: final_public_values,
-            proof: file_path_rel,
-        })
-    });
+    // Önce execute et (proof oluşturmadan önce doğrula)
+    info!("Running SP1 program: {}", job_id);
+    let (mut pub_values, _) = client.execute(ELF, &stdin).run().map_err(|e| {
+        error!("SP1 execution error: {} - {}", job_id, e);
+        e.to_string()
+    })?;
     
-    // Panic durumunu kontrol et
-    match result {
-        Ok(result) => result,
-        Err(_) => {
-            error!("Panic occurred during proof generation: {}", job_id);
-            // Railway deployment için simüle edilmiş bir proof döndür
-            Ok(ProofResponse {
-                public_values: "simulated_public_values_after_panic".to_string(),
-                proof: format!("simulated_proof_for_job_{}_after_panic", job_id),
-            })
-        }
+    let is_valid = pub_values.read::<bool>();
+    info!("SP1 execution result: {} - {}", job_id, is_valid);
+    
+    if !is_valid {
+        warn!("Invalid solution according to SP1: {}", job_id);
+        return Err("Invalid solution according to SP1".to_string());
     }
+    
+    // Prover ve Verifier anahtarlarını oluştur
+    info!("Setting up prover and verifier keys: {}", job_id);
+    let (pk, vk) = client.setup(ELF);
+    debug!("Verification key: {} - {:?}", job_id, vk.bytes32_raw());
+    
+    // Proof oluştur
+    info!("Generating proof: {}", job_id);
+    let mut proof = client.prove(&pk, &stdin).compressed().run().map_err(|e| {
+        error!("Proof generation error: {} - {}", job_id, e);
+        e.to_string()
+    })?;
+    info!("Proof successfully generated: {}", job_id);
+    
+    // Proof'u kaydet
+    let file_path_rel = format!("proof-{}.proof", job_id);
+    let file_path = format!("{}/{}", assets_dir, file_path_rel);
+    
+    info!("Saving proof: {} - {}", job_id, file_path);
+    proof.save(&file_path).map_err(|e| {
+        error!("Proof saving error: {} - {}", job_id, e);
+        e.to_string()
+    })?;
+    info!("Proof successfully saved: {} - {}", job_id, file_path);
+    
+    // Public değerleri al
+    let public_valid = proof.public_values.read::<bool>();
+    let final_public_values = format!("{}", public_valid);
+    debug!("Public values: {} - {}", job_id, final_public_values);
+    
+    // Yanıtı döndür
+    info!("Creating proof response: {}", job_id);
+    Ok(ProofResponse {
+        public_values: final_public_values,
+        proof: file_path_rel,
+    })
 }
 
 // Sudoku çözümünün geçerli olup olmadığını kontrol eden fonksiyon
@@ -640,4 +655,54 @@ fn is_valid_placement(board: &[Vec<u8>], row: usize, col: usize, num: u8) -> boo
 
     debug!("Placement is valid: ({}, {}) - {}", row, col, num);
     true
+}
+
+// REST API ile proof durumunu sorgulama
+async fn get_proof_status(
+    Path(job_id): Path<String>,
+    State(jobs): State<JobStorage>,
+) -> Json<JobResponse> {
+    info!("get_proof_status called: {}", job_id);
+    
+    let jobs_map = jobs.lock().await;
+    let response = match jobs_map.get(&job_id) {
+        Some(JobStatus::Processing) => {
+            debug!("Job status: Processing - {}", job_id);
+            JobResponse {
+                job_id: job_id.clone(),
+                status: "processing".to_string(),
+                result: None,
+                error: None,
+            }
+        }
+        Some(JobStatus::Complete(response)) => {
+            info!("Job completed: {}", job_id);
+            JobResponse {
+                job_id: job_id.clone(),
+                status: "complete".to_string(),
+                result: Some(response.clone()),
+                error: None,
+            }
+        }
+        Some(JobStatus::Failed(err)) => {
+            warn!("Job failed: {} - {}", job_id, err);
+            JobResponse {
+                job_id: job_id.clone(),
+                status: "failed".to_string(),
+                result: None,
+                error: Some(err.clone()),
+            }
+        }
+        None => {
+            warn!("Job not found: {}", job_id);
+            JobResponse {
+                job_id: job_id.clone(),
+                status: "not_found".to_string(),
+                result: None,
+                error: Some("Job not found".to_string()),
+            }
+        }
+    };
+    
+    Json(response)
 }

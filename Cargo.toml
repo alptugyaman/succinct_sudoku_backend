@@ -18,15 +18,11 @@ futures = "0.3"
 log = "0.4"
 env_logger = "0.10"
 chrono = "0.4"
-tower-http = { version = "0.5", features = ["trace"] }
+tower-http = { version = "0.5", features = ["trace", "cors"] }
 tracing = "0.1"
 
 # SP1 bağımlılıkları
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git" }
-
-[features]
-default = []
-dummy_prover = []
 
 [workspace]
 members = ["sp1_prover"] 
