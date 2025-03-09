@@ -24,5 +24,9 @@ tracing = "0.1"
 # SP1 bağımlılıkları
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git" }
 
+[features]
+default = []
+dummy_prover = []
+
 [workspace]
 members = ["sp1_prover"] 
