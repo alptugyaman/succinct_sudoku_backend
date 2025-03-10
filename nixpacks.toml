@@ -1,8 +1,7 @@
 [phases.build]
 cmds = [
   "cargo build --release --features no_elf",
-  "find / -name sudoku_backend -type f 2>/dev/null || echo 'Binary not found'",
-  "ls -la /app/target/release/ || echo 'Directory not found'"
+  "ls -la target/release/"
 ]
 
 [start]
