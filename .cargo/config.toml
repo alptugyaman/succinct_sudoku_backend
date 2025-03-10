@@ -1,0 +1,13 @@
+[build]
+rustflags = ["-C", "link-arg=-s", "-C", "codegen-units=16", "-C", "debuginfo=0"]
+
+[profile.dev]
+incremental = true
+debug = 0
+
+[profile.release]
+incremental = true
+debug = 0
+codegen-units = 16
+opt-level = 3
+lto = "thin" 

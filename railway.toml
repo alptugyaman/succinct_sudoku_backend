@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "CARGO_NET_GIT_FETCH_WITH_CLI=true RUSTFLAGS=\"-C link-arg=-s\" cargo build --release --features no_elf"
+buildCommand = "rm -rf target/release && CARGO_NET_GIT_FETCH_WITH_CLI=true RUSTFLAGS=\"-C link-arg=-s -C codegen-units=16 -C debuginfo=0 -C opt-level=3\" cargo build --release --features no_elf"
 
 [deploy]
 startCommand = "RUST_LOG=info ./target/release/sudoku_backend"

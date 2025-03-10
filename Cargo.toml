@@ -29,4 +29,15 @@ default = []
 no_elf = []
 
 [workspace]
-members = ["sp1_prover"] 
+members = ["sp1_prover"]
+
+[profile.dev]
+incremental = true
+debug = 0
+
+[profile.release]
+incremental = true
+debug = 0
+codegen-units = 16
+opt-level = 3
+lto = "thin" 
