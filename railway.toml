@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "./build.sh"
+buildCommand = "source $HOME/.cargo/env && ./build.sh"
 watchPatterns = ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
 nixpacksConfigPath = "nixpacks.toml"
 
