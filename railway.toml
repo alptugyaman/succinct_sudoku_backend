@@ -1,6 +1,38 @@
 [build]
 builder = "nixpacks"
-buildCommand = "cd sp1_prover && cargo build --release && mkdir -p ../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/ && cp target/release/sp1_prover ../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/ && cd .. && cargo build --release"
+buildCommand = """
+# SP1 prover'ı derle
+cd sp1_prover && cargo build --release
+
+# Dizin yapısını oluştur
+mkdir -p ../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
+
+# SP1 prover binary'sinin konumunu bul
+echo "Searching for SP1 prover binary..."
+find /app -name "sp1_prover" -type f -executable
+
+# SP1 prover binary'sini kopyala
+if [ -f "target/release/sp1_prover" ]; then
+  echo "Found SP1 prover at target/release/sp1_prover"
+  cp target/release/sp1_prover ../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
+elif [ -f "/app/sp1_prover/target/release/sp1_prover" ]; then
+  echo "Found SP1 prover at /app/sp1_prover/target/release/sp1_prover"
+  cp /app/sp1_prover/target/release/sp1_prover ../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
+else
+  echo "Searching for SP1 prover in the entire filesystem..."
+  SP1_PATH=$(find /app -name "sp1_prover" -type f -executable | head -1)
+  if [ -n "$SP1_PATH" ]; then
+    echo "Found SP1 prover at $SP1_PATH"
+    cp "$SP1_PATH" ../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
+  else
+    echo "SP1 prover binary not found!"
+    exit 1
+  fi
+fi
+
+# Ana uygulamayı derle
+cd .. && cargo build --release
+"""
 
 [deploy]
 startCommand = "RUST_LOG=info ./target/release/sudoku_backend"
