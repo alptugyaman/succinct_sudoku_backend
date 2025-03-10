@@ -1,8 +1,8 @@
 [phases.build]
-cmds = ["cargo build --release --features no_elf"]
+cmds = [
+  "cargo build --release --features no_elf",
+  "ls -la target/release/"
+]
 
 [start]
-cmd = "./target/release/sudoku_backend"
-
-[variables]
-NIXPACKS_NO_MUSL = "1" 
+cmd = "./target/release/sudoku_backend" 
