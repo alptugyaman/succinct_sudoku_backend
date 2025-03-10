@@ -1,0 +1,5 @@
+[phases.build]
+cmds = ["cargo build --release --features no_elf"]
+
+[start]
+cmd = "./target/release/sudoku_backend" 
