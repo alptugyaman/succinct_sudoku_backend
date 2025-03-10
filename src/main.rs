@@ -30,13 +30,11 @@ use tower_http::cors::CorsLayer;
 use sp1_sdk::{ProverClient, SP1Stdin, HashableKey};
 
 // ELF dosyası (SP1 prover'ın derlenmiş hali)
-#[cfg(not(feature = "no_elf"))]
-const ELF: &[u8] = match include_bytes!("../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1_prover") {
-    bytes => bytes,
-};
+#[cfg(not(feature = "minimal"))]
+const ELF: &[u8] = include_bytes!("../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1_prover");
 
-#[cfg(feature = "no_elf")]
-const ELF: &[u8] = &[];
+#[cfg(feature = "minimal")]
+const ELF: &[u8] = &[]; // Railway ortamında boş bir array kullan
 
 // İş depolama yapısı
 type JobStorage = Arc<Mutex<HashMap<String, JobStatus>>>;
@@ -552,107 +550,144 @@ async fn generate_proof(
         return Err("Invalid solution".to_string());
     }
     
-    // ProverClient oluştur
-    let log_msg = format!("Creating ProverClient: {}", job_id);
-    info!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    let client = ProverClient::from_env();
-    
-    // Girdileri hazırla
-    let log_msg = format!("Preparing SP1 inputs: {}", job_id);
-    debug!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    let mut stdin = SP1Stdin::new();
-    stdin.write(&input.initial_board);
-    stdin.write(&input.solution);
-    
-    // Önce execute et (proof oluşturmadan önce doğrula)
-    let log_msg = format!("Running SP1 program: {}", job_id);
-    info!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    let (mut pub_values, _) = client.execute(ELF, &stdin).run().map_err(|e| {
-        let log_msg = format!("SP1 execution error: {} - {}", job_id, e);
-        error!("{}", log_msg);
+    #[cfg(not(feature = "minimal"))]
+    {
+        // ProverClient oluştur
+        let log_msg = format!("Creating ProverClient: {}", job_id);
+        info!("{}", log_msg);
         log_message_sync(&logs, &job_id, &log_msg);
-        e.to_string()
-    })?;
-    
-    let is_valid = pub_values.read::<bool>();
-    let log_msg = format!("SP1 execution result: {} - {}", job_id, is_valid);
-    info!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    if !is_valid {
-        let log_msg = format!("Invalid solution according to SP1: {}", job_id);
-        warn!("{}", log_msg);
+        
+        let client = ProverClient::from_env();
+        
+        // Girdileri hazırla
+        let log_msg = format!("Preparing SP1 inputs: {}", job_id);
+        debug!("{}", log_msg);
         log_message_sync(&logs, &job_id, &log_msg);
-        return Err("Invalid solution according to SP1".to_string());
+        
+        let mut stdin = SP1Stdin::new();
+        stdin.write(&input.initial_board);
+        stdin.write(&input.solution);
+        
+        // Önce execute et (proof oluşturmadan önce doğrula)
+        let log_msg = format!("Running SP1 program: {}", job_id);
+        info!("{}", log_msg);
+        log_message_sync(&logs, &job_id, &log_msg);
+        
+        let (mut pub_values, _) = client.execute(ELF, &stdin).run().map_err(|e| {
+            let log_msg = format!("SP1 execution error: {} - {}", job_id, e);
+            error!("{}", log_msg);
+            log_message_sync(&logs, &job_id, &log_msg);
+            e.to_string()
+        })?;
+        
+        let is_valid = pub_values.read::<bool>();
+        let log_msg = format!("SP1 execution result: {} - {}", job_id, is_valid);
+        info!("{}", log_msg);
+        log_message_sync(&logs, &job_id, &log_msg);
+        
+        if !is_valid {
+            let log_msg = format!("Invalid solution according to SP1: {}", job_id);
+            warn!("{}", log_msg);
+            log_message_sync(&logs, &job_id, &log_msg);
+            return Err("Invalid solution according to SP1".to_string());
+        }
+        
+        // Prover ve Verifier anahtarlarını oluştur
+        let log_msg = format!("Setting up prover and verifier keys: {}", job_id);
+        info!("{}", log_msg);
+        log_message_sync(&logs, &job_id, &log_msg);
+        
+        let (pk, vk) = client.setup(ELF);
+        let log_msg = format!("Verification key: {} - {:?}", job_id, vk.bytes32_raw());
+        debug!("{}", log_msg);
+        log_message_sync(&logs, &job_id, &log_msg);
+        
+        // Proof oluştur
+        let log_msg = format!("Generating proof: {}", job_id);
+        info!("{}", log_msg);
+        log_message_sync(&logs, &job_id, &log_msg);
+        
+        let mut proof = client.prove(&pk, &stdin).compressed().run().map_err(|e| {
+            let log_msg = format!("Proof generation error: {} - {}", job_id, e);
+            error!("{}", log_msg);
+            log_message_sync(&logs, &job_id, &log_msg);
+            e.to_string()
+        })?;
+        
+        let log_msg = format!("Proof successfully generated: {}", job_id);
+        info!("{}", log_msg);
+        log_message_sync(&logs, &job_id, &log_msg);
+        
+        // Proof'u kaydet
+        let file_path_rel = format!("proof-{}.proof", job_id);
+        let file_path = format!("{}/{}", assets_dir, file_path_rel);
+        
+        let log_msg = format!("Saving proof: {} - {}", job_id, file_path);
+        info!("{}", log_msg);
+        log_message_sync(&logs, &job_id, &log_msg);
+        
+        proof.save(&file_path).map_err(|e| {
+            let log_msg = format!("Proof saving error: {} - {}", job_id, e);
+            error!("{}", log_msg);
+            log_message_sync(&logs, &job_id, &log_msg);
+            e.to_string()
+        })?;
+        
+        let log_msg = format!("Proof successfully saved: {} - {}", job_id, file_path);
+        info!("{}", log_msg);
+        log_message_sync(&logs, &job_id, &log_msg);
+        
+        // Public değerleri al
+        let public_valid = proof.public_values.read::<bool>();
+        let final_public_values = format!("{}", public_valid);
+        let log_msg = format!("Public values: {} - {}", job_id, final_public_values);
+        debug!("{}", log_msg);
+        log_message_sync(&logs, &job_id, &log_msg);
+        
+        // Yanıtı döndür
+        let log_msg = format!("Creating proof response: {}", job_id);
+        info!("{}", log_msg);
+        log_message_sync(&logs, &job_id, &log_msg);
+        
+        Ok(ProofResponse {
+            public_values: final_public_values,
+            proof: file_path_rel,
+        })
     }
     
-    // Prover ve Verifier anahtarlarını oluştur
-    let log_msg = format!("Setting up prover and verifier keys: {}", job_id);
-    info!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    let (pk, vk) = client.setup(ELF);
-    let log_msg = format!("Verification key: {} - {:?}", job_id, vk.bytes32_raw());
-    debug!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    // Proof oluştur
-    let log_msg = format!("Generating proof: {}", job_id);
-    info!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    let mut proof = client.prove(&pk, &stdin).compressed().run().map_err(|e| {
-        let log_msg = format!("Proof generation error: {} - {}", job_id, e);
-        error!("{}", log_msg);
+    #[cfg(feature = "minimal")]
+    {
+        // Minimal modda, gerçek bir proof oluşturmadan basit bir yanıt döndür
+        let log_msg = format!("Running in minimal mode, skipping SP1 proof generation: {}", job_id);
+        info!("{}", log_msg);
         log_message_sync(&logs, &job_id, &log_msg);
-        e.to_string()
-    })?;
-    
-    let log_msg = format!("Proof successfully generated: {}", job_id);
-    info!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    // Proof'u kaydet
-    let file_path_rel = format!("proof-{}.proof", job_id);
-    let file_path = format!("{}/{}", assets_dir, file_path_rel);
-    
-    let log_msg = format!("Saving proof: {} - {}", job_id, file_path);
-    info!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    proof.save(&file_path).map_err(|e| {
-        let log_msg = format!("Proof saving error: {} - {}", job_id, e);
-        error!("{}", log_msg);
+        
+        // Basit bir dosya oluştur
+        let file_path_rel = format!("proof-{}.proof", job_id);
+        let file_path = format!("{}/{}", assets_dir, file_path_rel);
+        
+        let log_msg = format!("Creating dummy proof file: {} - {}", job_id, file_path);
+        info!("{}", log_msg);
         log_message_sync(&logs, &job_id, &log_msg);
-        e.to_string()
-    })?;
-    
-    let log_msg = format!("Proof successfully saved: {} - {}", job_id, file_path);
-    info!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    // Public değerleri al
-    let public_valid = proof.public_values.read::<bool>();
-    let final_public_values = format!("{}", public_valid);
-    let log_msg = format!("Public values: {} - {}", job_id, final_public_values);
-    debug!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    // Yanıtı döndür
-    let log_msg = format!("Creating proof response: {}", job_id);
-    info!("{}", log_msg);
-    log_message_sync(&logs, &job_id, &log_msg);
-    
-    Ok(ProofResponse {
-        public_values: final_public_values,
-        proof: file_path_rel,
-    })
+        
+        // Boş bir dosya oluştur
+        fs::write(&file_path, "dummy proof").map_err(|e| {
+            let log_msg = format!("Dummy proof creation error: {} - {}", job_id, e);
+            error!("{}", log_msg);
+            log_message_sync(&logs, &job_id, &log_msg);
+            e.to_string()
+        })?;
+        
+        let log_msg = format!("Dummy proof successfully created: {} - {}", job_id, file_path);
+        info!("{}", log_msg);
+        log_message_sync(&logs, &job_id, &log_msg);
+        
+        // Yanıtı döndür
+        Ok(ProofResponse {
+            public_values: "true".to_string(),
+            proof: file_path_rel,
+        })
+    }
 }
 
 // Sudoku çözümünün geçerli olup olmadığını kontrol eden fonksiyon

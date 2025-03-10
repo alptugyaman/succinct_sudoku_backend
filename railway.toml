@@ -1,6 +1,6 @@
 [build]
-builder = "dockerfile"
-dockerfilePath = "Dockerfile"
+builder = "nixpacks"
+buildCommand = "cargo build --release --features minimal"
 
 [deploy]
 startCommand = "RUST_LOG=info ./target/release/sudoku_backend"

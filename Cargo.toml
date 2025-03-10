@@ -3,6 +3,10 @@ name = "sudoku_backend"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+minimal = []
+
 [dependencies]
 axum = { version = "0.7", features = ["ws", "macros"] }
 tokio = { version = "1", features = ["full"] }
@@ -22,23 +26,7 @@ tower-http = { version = "0.5", features = ["trace", "cors"] }
 tracing = "0.1"
 
 # SP1 bağımlılıkları
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "342422d9" }
-
-[features]
-default = []
-no_elf = []
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git" }
 
 [workspace]
-members = ["sp1_prover"]
-
-[profile.dev]
-incremental = true
-debug = 0
-
-[profile.release]
-incremental = true
-debug = 0
-codegen-units = 16
-opt-level = "z"
-lto = "thin"
-strip = true 
+members = ["sp1_prover"] 
