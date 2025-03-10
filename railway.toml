@@ -1,0 +1,11 @@
+[build]
+builder = "nixpacks"
+buildCommand = "cargo build --release"
+
+[deploy]
+startCommand = "RUST_LOG=info ./target/release/sudoku_backend"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+[variables]
+PORT = "8080" 
