@@ -1,30 +1,26 @@
-use std::{env, fs, io, path::Path};
+use std::{fs, path::Path};
 
 fn main() {
     println!("cargo:rerun-if-changed=sp1_prover/src");
     
-    // SP1 prover'ı derle
-    let status = std::process::Command::new("cargo")
-        .args(&["build", "--release", "--manifest-path", "sp1_prover/Cargo.toml"])
-        .status()
-        .expect("Failed to build SP1 prover");
+    // SP1 prover binary'sinin konumunu kontrol et
+    let target_dir = Path::new("target/elf-compilation/riscv32im-succinct-zkvm-elf/release");
+    let target_path = target_dir.join("sp1_prover");
     
-    if !status.success() {
-        panic!("Failed to build SP1 prover");
+    // Eğer binary zaten varsa, yeniden derlemeye gerek yok
+    if target_path.exists() {
+        println!("SP1 prover binary already exists at {:?}", target_path);
+        return;
     }
     
     // Hedef dizini oluştur
-    let target_dir = Path::new("target/elf-compilation/riscv32im-succinct-zkvm-elf/release");
     fs::create_dir_all(target_dir).expect("Failed to create target directory");
     
     // SP1 prover binary'sini ara
-    let source_path = Path::new("sp1_prover/target/release/sp1_prover");
+    let source_path = Path::new("target/release/sp1_prover");
     
     if source_path.exists() {
         println!("Found SP1 prover at {:?}", source_path);
-        
-        // Hedef dosya yolu
-        let target_path = target_dir.join("sp1_prover");
         
         // Dosyayı kopyala
         fs::copy(source_path, &target_path)
@@ -36,7 +32,6 @@ fn main() {
         println!("Creating an empty file as a fallback");
         
         // Boş bir dosya oluştur
-        let target_path = target_dir.join("sp1_prover");
         fs::write(&target_path, &[]).expect("Failed to create empty file");
     }
 } 
