@@ -30,7 +30,11 @@ use tower_http::cors::CorsLayer;
 use sp1_sdk::{ProverClient, SP1Stdin, HashableKey};
 
 // ELF dosyası (SP1 prover'ın derlenmiş hali)
+#[cfg(not(feature = "no_elf"))]
 const ELF: &[u8] = include_bytes!("../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1_prover");
+
+#[cfg(feature = "no_elf")]
+const ELF: &[u8] = &[]; // no_elf özelliği etkinleştirildiğinde boş bir array kullan
 
 // İş depolama yapısı
 type JobStorage = Arc<Mutex<HashMap<String, JobStatus>>>;
