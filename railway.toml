@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "RUSTFLAGS=\"-C codegen-units=1 -C opt-level=z\" cargo build --release"
+buildCommand = "cargo build --release"
 
 [deploy]
 startCommand = "RUST_LOG=info ./target/release/sudoku_backend"
@@ -8,5 +8,4 @@ restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 
 [variables]
-PORT = "8080"
-CARGO_NET_GIT_FETCH_WITH_CLI = "true" 
+PORT = "8080" 

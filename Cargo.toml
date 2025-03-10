@@ -3,10 +3,6 @@ name = "sudoku_backend"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-default = []
-minimal = []
-
 [dependencies]
 axum = { version = "0.7", features = ["ws", "macros"] }
 tokio = { version = "1", features = ["full"] }
