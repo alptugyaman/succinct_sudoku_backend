@@ -1,171 +1,144 @@
-# Sudoku Backend
+# Succinct Sudoku Backend
 
-## English
+A Rust-based backend for validating Sudoku puzzles and generating Zero-Knowledge Proofs (ZKPs) using SP1.
 
-This project provides a backend service for validating Sudoku puzzles and generating zero-knowledge proofs (ZKP).
+## Features
 
-### Features
+- **Sudoku Validation**: Validate if a Sudoku board is valid
+- **Solution Verification**: Verify if a solution matches the initial board
+- **Zero-Knowledge Proofs**: Generate ZKPs to prove the validity of a Sudoku solution without revealing the solution
+- **Asynchronous Processing**: Handle long-running proof generation in the background
+- **WebSocket Support**: Track the status of proof generation in real-time
 
-- Sudoku puzzle validation
-- Zero-knowledge proof (ZKP) generation
-- Real-time log tracking via WebSocket
-- Proof status querying via REST API
+## API Endpoints
 
-### Development
+- `GET /`: Health check
+- `POST /validate`: Validate a Sudoku board
+- `POST /verify`: Verify a Sudoku solution against an initial board
+- `POST /zkp`: Generate a simulated ZKP
+- `POST /prove`: Generate a real ZKP using SP1 (asynchronous)
+- `GET /proof/:job_id`: WebSocket endpoint to track proof generation status
 
-#### Requirements
+## Getting Started
 
-- Rust 1.70+
+### Prerequisites
+
+- Rust (latest stable version)
 - Cargo
 
-#### Installation
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/alptugyaman/succinct_sudoku_backend.git
+   cd succinct_sudoku_backend
+   ```
+
+2. Build the project:
+   ```bash
+   cargo build
+   ```
+
+3. Run the server:
+   ```bash
+   cargo run
+   ```
+
+The server will start at `http://localhost:3000`.
+
+### Usage Examples
+
+#### Validate a Sudoku Board
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/sudoku_backend.git
-cd sudoku_backend
-
-# Install dependencies and build the project
-cargo build
-
-# Run the application
-cargo run
+curl -X POST http://localhost:3000/validate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "board": [
+      [5,3,4,6,7,8,9,1,2],
+      [6,7,2,1,9,5,3,4,8],
+      [1,9,8,3,4,2,5,6,7],
+      [8,5,9,7,6,1,4,2,3],
+      [4,2,6,8,5,3,7,9,1],
+      [7,1,3,9,2,4,8,5,6],
+      [9,6,1,5,3,7,2,8,4],
+      [2,8,7,4,1,9,6,3,5],
+      [3,4,5,2,8,6,1,7,9]
+    ]
+  }'
 ```
 
-#### API Endpoints
-
-- `GET /` - Health check
-- `POST /api/validate` - Validate Sudoku puzzle
-- `POST /api/verify` - Verify Sudoku solution
-- `POST /api/zkp` - Generate zero-knowledge proof
-- `POST /api/prove` - Start asynchronous proof generation
-- `GET /api/proof/:job_id` - Track proof status via WebSocket
-- `GET /api/proof-status/:job_id` - Query proof status via REST API
-- `GET /api/logs/:job_id` - Track log messages via WebSocket
-
-### Railway Deployment
-
-Follow these steps to deploy this project to Railway:
-
-1. Install the [Railway CLI](https://docs.railway.app/develop/cli):
-   ```bash
-   npm i -g @railway/cli
-   ```
-
-2. Login to your Railway account:
-   ```bash
-   railway login
-   ```
-
-3. Create a new project:
-   ```bash
-   railway init
-   ```
-
-4. Deploy the project:
-   ```bash
-   railway up
-   ```
-
-Alternatively, you can deploy via the Railway Dashboard:
-
-1. Go to the [Railway Dashboard](https://railway.app/dashboard)
-2. Select "New Project" > "GitHub Repo"
-3. Choose this repository and click the "Deploy" button
-
-#### Environment Variables
-
-You can set the following environment variables in Railway:
-
-- `PORT`: The port the application will listen on (default: 3000)
-- `RUST_LOG`: Log level (default: info)
-
-### License
-
-This project is licensed under the [MIT License](LICENSE).
-
----
-
-## Türkçe
-
-Bu proje, Sudoku bulmacalarını doğrulamak ve zero-knowledge proof (ZKP) oluşturmak için bir backend servisi sağlar.
-
-### Özellikler
-
-- Sudoku bulmacalarını doğrulama
-- Zero-knowledge proof (ZKP) oluşturma
-- WebSocket ile gerçek zamanlı log takibi
-- REST API ile proof durumu sorgulama
-
-### Geliştirme
-
-#### Gereksinimler
-
-- Rust 1.70+
-- Cargo
-
-#### Kurulum
+#### Verify a Sudoku Solution
 
 ```bash
-# Repoyu klonla
-git clone https://github.com/yourusername/sudoku_backend.git
-cd sudoku_backend
-
-# Bağımlılıkları kur ve projeyi derle
-cargo build
-
-# Uygulamayı çalıştır
-cargo run
+curl -X POST http://localhost:3000/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "initial_board": [
+      [5,3,0,0,7,0,0,0,0],
+      [6,0,0,1,9,5,0,0,0],
+      [0,9,8,0,0,0,0,6,0],
+      [8,0,0,0,6,0,0,0,3],
+      [4,0,0,8,0,3,0,0,1],
+      [7,0,0,0,2,0,0,0,6],
+      [0,6,0,0,0,0,2,8,0],
+      [0,0,0,4,1,9,0,0,5],
+      [0,0,0,0,8,0,0,7,9]
+    ],
+    "solution": [
+      [5,3,4,6,7,8,9,1,2],
+      [6,7,2,1,9,5,3,4,8],
+      [1,9,8,3,4,2,5,6,7],
+      [8,5,9,7,6,1,4,2,3],
+      [4,2,6,8,5,3,7,9,1],
+      [7,1,3,9,2,4,8,5,6],
+      [9,6,1,5,3,7,2,8,4],
+      [2,8,7,4,1,9,6,3,5],
+      [3,4,5,2,8,6,1,7,9]
+    ]
+  }'
 ```
 
-#### API Endpoints
+#### Generate a ZKP
 
-- `GET /` - Sağlık kontrolü
-- `POST /api/validate` - Sudoku bulmacasını doğrula
-- `POST /api/verify` - Sudoku çözümünü doğrula
-- `POST /api/zkp` - Zero-knowledge proof oluştur
-- `POST /api/prove` - Asenkron proof oluşturma işlemi başlat
-- `GET /api/proof/:job_id` - WebSocket ile proof durumunu takip et
-- `GET /api/proof-status/:job_id` - REST API ile proof durumunu sorgula
-- `GET /api/logs/:job_id` - WebSocket ile log mesajlarını takip et
+```bash
+curl -X POST http://localhost:3000/prove \
+  -H "Content-Type: application/json" \
+  -d '{
+    "initial_board": [
+      [5,3,0,0,7,0,0,0,0],
+      [6,0,0,1,9,5,0,0,0],
+      [0,9,8,0,0,0,0,6,0],
+      [8,0,0,0,6,0,0,0,3],
+      [4,0,0,8,0,3,0,0,1],
+      [7,0,0,0,2,0,0,0,6],
+      [0,6,0,0,0,0,2,8,0],
+      [0,0,0,4,1,9,0,0,5],
+      [0,0,0,0,8,0,0,7,9]
+    ],
+    "solution": [
+      [5,3,4,6,7,8,9,1,2],
+      [6,7,2,1,9,5,3,4,8],
+      [1,9,8,3,4,2,5,6,7],
+      [8,5,9,7,6,1,4,2,3],
+      [4,2,6,8,5,3,7,9,1],
+      [7,1,3,9,2,4,8,5,6],
+      [9,6,1,5,3,7,2,8,4],
+      [2,8,7,4,1,9,6,3,5],
+      [3,4,5,2,8,6,1,7,9]
+    ]
+  }'
+```
 
-### Railway Deployment
+## Architecture
 
-Bu projeyi Railway'e deploy etmek için aşağıdaki adımları izleyin:
+The backend is built using the following technologies:
 
-1. [Railway CLI](https://docs.railway.app/develop/cli) yükleyin:
-   ```bash
-   npm i -g @railway/cli
-   ```
+- **Axum**: Web framework for handling HTTP requests
+- **Tokio**: Asynchronous runtime
+- **SP1**: Zero-Knowledge Proof system
+- **WebSockets**: For real-time communication
 
-2. Railway hesabınıza giriş yapın:
-   ```bash
-   railway login
-   ```
+## License
 
-3. Yeni bir proje oluşturun:
-   ```bash
-   railway init
-   ```
-
-4. Projeyi deploy edin:
-   ```bash
-   railway up
-   ```
-
-Alternatif olarak, Railway Dashboard üzerinden de deploy edebilirsiniz:
-
-1. [Railway Dashboard](https://railway.app/dashboard)'a gidin
-2. "New Project" > "GitHub Repo" seçin
-3. Bu repoyu seçin ve "Deploy" düğmesine tıklayın
-
-#### Ortam Değişkenleri
-
-Railway'de aşağıdaki ortam değişkenlerini ayarlayabilirsiniz:
-
-- `PORT`: Uygulamanın dinleyeceği port (varsayılan: 3000)
-- `RUST_LOG`: Log seviyesi (varsayılan: info)
-
-### Lisans
-
-Bu proje [MIT Lisansı](LICENSE) altında lisanslanmıştır. 
+This project is licensed under the MIT License - see the LICENSE file for details. 
