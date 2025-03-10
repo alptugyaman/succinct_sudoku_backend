@@ -12,7 +12,9 @@ Cargo.lock
 *.pdb
 
 # Generated proofs
-/assets/
+/assets/*
+!/assets/prebuilt/
+!/assets/prebuilt/**
 
 # Environment variables
 .env
