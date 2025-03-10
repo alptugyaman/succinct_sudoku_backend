@@ -2,4 +2,7 @@
 cmds = ["cargo build --release --features no_elf"]
 
 [start]
-cmd = "./target/release/sudoku_backend" 
+cmd = "./target/release/sudoku_backend"
+
+[variables]
+NIXPACKS_NO_MUSL = "1" 
