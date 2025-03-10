@@ -1,0 +1,25 @@
+[phases.setup]
+nixPkgs = ["gcc", "pkg-config", "openssl", "openssl.dev"]
+
+[phases.build]
+cmds = []
+
+[start]
+cmd = ""
+
+[variables]
+CARGO_NET_GIT_FETCH_WITH_CLI = "true"
+CARGO_REGISTRIES_CRATES_IO_PROTOCOL = "sparse"
+
+[nixpacks]
+plan_path = "/tmp/nixpacks/plan.json"
+
+[phases.build.cache]
+directories = ["target"]
+
+[phases.build.nixpkgs]
+collect_output = true
+
+[phases.build.nixpkgs.opts]
+cores = 4
+memory = "8GB" 
