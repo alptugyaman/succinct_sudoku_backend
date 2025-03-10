@@ -144,10 +144,13 @@ async fn main() {
     // CORS yapılandırması
     let cors = CorsLayer::new()
         .allow_origin([
-            "http://localhost:3000".parse().unwrap(),
             "http://localhost:3001".parse().unwrap(),
-            "http://localhost:3002".parse().unwrap(),
-            "http://localhost:8080".parse().unwrap()
+            "http://localhost:3000".parse().unwrap(),
+            "http://localhost:8080".parse().unwrap(),
+            // Railway'de frontend uygulamanızın domain'i
+            "https://sudoku-frontend.up.railway.app".parse().unwrap(),
+            // Tüm originlere izin vermek için (geliştirme aşamasında)
+            // "https://*".parse().unwrap(), // Güvenlik için production'da belirli domainlere izin verin
         ])
         .allow_methods([
             axum::http::Method::GET,
@@ -186,7 +189,9 @@ async fn main() {
         )
         .with_state((jobs.clone(), logs.clone()));
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    // PORT ortam değişkenini kullan veya varsayılan olarak 3000 portunu kullan
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    let addr = SocketAddr::from(([0, 0, 0, 0], port.parse().unwrap()));
     info!("Server running at http://{}", addr);
     
     let listener = TcpListener::bind(addr).await.unwrap();

@@ -12,10 +12,11 @@ Cargo.lock
 *.pdb
 
 # Generated proofs
-/assets/
+/assets/*.proof
 
 # Environment variables
 .env
+.env.local
 
 # IDE files
 .idea/
@@ -25,3 +26,6 @@ Cargo.lock
 
 # macOS files
 .DS_Store
+
+# Railway files
+.railway/

@@ -1,0 +1,8 @@
+/target
+/.git
+/.github
+/assets
+Dockerfile
+.dockerignore
+README.md
+.DS_Store 
