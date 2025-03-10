@@ -3,7 +3,7 @@ builder = "nixpacks"
 buildCommand = "cargo build --release --features no_elf"
 
 [deploy]
-startCommand = "RUST_LOG=info /app/target/release/sudoku_backend"
+startCommand = "RUST_LOG=info ./target/release/sudoku_backend"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 
