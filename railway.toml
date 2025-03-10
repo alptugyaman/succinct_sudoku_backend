@@ -1,11 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = """
-cd sp1_prover && cargo build --release
-mkdir -p ../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
-cp target/release/sp1_prover ../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
-cd .. && cargo build --release
-"""
+buildCommand = "cd sp1_prover && cargo build --release && mkdir -p ../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/ && cp target/release/sp1_prover ../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/ && cd .. && cargo build --release"
 
 [deploy]
 startCommand = "RUST_LOG=info ./target/release/sudoku_backend"
