@@ -147,7 +147,10 @@ async fn main() {
             "http://localhost:3000".parse().unwrap(),
             "http://localhost:3001".parse().unwrap(),
             "http://localhost:3002".parse().unwrap(),
-            "http://localhost:8080".parse().unwrap()
+            "http://localhost:8080".parse().unwrap(),
+            "https://succinctsudokubackend-production.up.railway.app".parse().unwrap(),
+            // Frontend domain'inizi buraya ekleyin
+            "https://your-frontend-domain.com".parse().unwrap()
         ])
         .allow_methods([
             axum::http::Method::GET,
@@ -186,7 +189,12 @@ async fn main() {
         )
         .with_state((jobs.clone(), logs.clone()));
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    // PORT çevre değişkenini oku, yoksa 3000 kullan
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    let port = port.parse::<u16>().unwrap();
+    
+    // 0.0.0.0 adresine bağlan (tüm ağ arayüzleri)
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     info!("Server running at http://{}", addr);
     
     let listener = TcpListener::bind(addr).await.unwrap();
