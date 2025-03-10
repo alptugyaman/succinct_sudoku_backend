@@ -1,8 +1,6 @@
 [build]
-builder = "nixpacks"
-buildCommand = "source $HOME/.cargo/env && ./build.sh"
-watchPatterns = ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
-nixpacksConfigPath = "nixpacks.toml"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "RUST_LOG=info ./target/release/sudoku_backend"
