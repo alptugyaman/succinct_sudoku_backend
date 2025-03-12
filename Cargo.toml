@@ -3,30 +3,31 @@ name = "sudoku_backend"
 version = "0.1.0"
 edition = "2021"
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [features]
-default = []
-no_elf = []
+default = []  # no_elf özelliğini varsayılan olarak devre dışı bırak
+no_elf = []  # ELF dosyasını dahil etmemek için özellik
 
 [dependencies]
-axum = { version = "0.7", features = ["ws", "macros"] }
-tokio = { version = "1", features = ["full"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+axum = { version = "0.7.4", features = ["ws", "macros"] }
+tokio = { version = "1.36.0", features = ["full"] }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
 hyper = { version = "1", features = ["full"] }
 tower = "0.4"
-sha256 = "1.4.0"
-uuid = { version = "1.6", features = ["v4"] }
+uuid = { version = "1.7.0", features = ["v4", "serde"] }
 futures = "0.3"
 
 # Loglama kütüphaneleri
-log = "0.4"
-env_logger = "0.10"
-chrono = "0.4"
-tower-http = { version = "0.5", features = ["trace", "cors"] }
-tracing = "0.1"
+log = "0.4.20"
+env_logger = "0.11.2"
+chrono = "0.4.34"
+tower-http = { version = "0.5.1", features = ["cors", "trace"] }
+tracing = "0.1.40"
 
 # SP1 bağımlılıkları
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git" }
+sp1-sdk = { version = "4.0.0-rc.11" }
 
 [workspace]
 members = ["sp1_prover"] 
